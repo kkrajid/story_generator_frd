@@ -35,8 +35,8 @@ Before you begin, ensure you have the following installed:
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd story_generator
+git clone https://github.com/kkrajid/story_generator_frd.git
+cd story_generator_frd
 ```
 
 2. Install dependencies:
