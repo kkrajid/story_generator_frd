@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PlusCircle, BookOpen, Users, Sparkles, Send, Loader2, Trash2, Eye, User, Scroll } from 'lucide-react';
 
 const API_BASE_URL = 'https://backend.quirktale.xyz';
@@ -8,6 +8,7 @@ const App = () => {
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [story, setStory] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [fetchingCharacters, setFetchingCharacters] = useState(true);
   const [generatingStoryFor, setGeneratingStoryFor] = useState(null);
   const [activeTab, setActiveTab] = useState('characters');
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -20,6 +21,7 @@ const App = () => {
   }, []);
 
   const fetchCharacters = async () => {
+    setFetchingCharacters(true);
     try {
       const response = await fetch(`${API_BASE_URL}/characters/`);
       if (response.ok) {
@@ -28,8 +30,25 @@ const App = () => {
       }
     } catch (error) {
       console.error('Error fetching characters:', error);
+    } finally {
+      setFetchingCharacters(false);
     }
   };
+
+  // Optimized input handlers with useCallback to prevent unnecessary re-renders
+  const handleNameChange = useCallback((e) => {
+    const value = e.target.value;
+    setNewCharacter(prev => ({ ...prev, name: value }));
+  }, []);
+
+  const handleDetailsChange = useCallback((e) => {
+    const value = e.target.value;
+    setNewCharacter(prev => ({ ...prev, details: value }));
+  }, []);
+
+  const handleStoryRequestChange = useCallback((e) => {
+    setStoryRequest(e.target.value);
+  }, []);
 
   const createCharacter = async () => {
     if (!newCharacter.name.trim() || !newCharacter.details.trim()) return;
@@ -46,7 +65,7 @@ const App = () => {
 
       if (response.ok) {
         const createdCharacter = await response.json();
-        setCharacters([...characters, createdCharacter]);
+        setCharacters(prev => [...prev, createdCharacter]);
         setNewCharacter({ name: '', details: '' });
         setShowCreateForm(false);
       }
@@ -126,77 +145,7 @@ const App = () => {
     </div>
   );
 
-  const CreateCharacterForm = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Create New Character</h2>
-            <button
-              onClick={() => setShowCreateForm(false)}
-              className="text-gray-400 hover:text-gray-600 text-2xl"
-            >
-              ×
-            </button>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Character Name
-              </label>
-              <input
-                type="text"
-                value={newCharacter.name}
-                onChange={(e) => setNewCharacter({ ...newCharacter, name: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                placeholder="Enter character name..."
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Character Details
-              </label>
-              <textarea
-                value={newCharacter.details}
-                onChange={(e) => setNewCharacter({ ...newCharacter, details: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all h-32 resize-none"
-                placeholder="Describe your character's personality, background, appearance, etc..."
-                required
-              />
-            </div>
-            
-            <div className="flex space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={() => setShowCreateForm(false)}
-                className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={createCharacter}
-                disabled={loading}
-                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 disabled:opacity-50"
-              >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <PlusCircle className="w-4 h-4" />
-                    <span>Create</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+
 
   const CharacterDetailModal = () => (
     selectedCharacter && (
@@ -266,10 +215,15 @@ const App = () => {
             
             <button
               onClick={() => setShowCreateForm(true)}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 flex items-center space-x-2"
+              disabled={fetchingCharacters}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <PlusCircle className="w-4 h-4" />
-              <span>New Character</span>
+              {fetchingCharacters ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <PlusCircle className="w-4 h-4" />
+              )}
+              <span>{fetchingCharacters ? 'Loading...' : 'New Character'}</span>
             </button>
           </div>
         </div>
@@ -318,7 +272,13 @@ const App = () => {
               <p className="text-gray-600">Create and manage your story characters</p>
             </div>
             
-            {characters.length === 0 ? (
+            {fetchingCharacters ? (
+              <div className="text-center py-16">
+                <Loader2 className="w-16 h-16 text-purple-600 mx-auto mb-4 animate-spin" />
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">Loading characters...</h3>
+                <p className="text-gray-500">Please wait while we fetch your characters</p>
+              </div>
+            ) : characters.length === 0 ? (
               <div className="text-center py-16">
                 <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-gray-500 mb-2">No characters yet</h3>
@@ -391,7 +351,83 @@ const App = () => {
       </main>
 
       {/* Modals */}
-      {showCreateForm && <CreateCharacterForm />}
+      {showCreateForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">Create New Character</h2>
+                <button
+                  onClick={() => setShowCreateForm(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Character Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newCharacter.name}
+                    onChange={handleNameChange}
+                    disabled={loading}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:cursor-not-allowed"
+                    placeholder="Enter character name..."
+                    required
+                    autoComplete="off"
+                    autoFocus
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Character Details
+                  </label>
+                  <textarea
+                    value={newCharacter.details}
+                    onChange={handleDetailsChange}
+                    disabled={loading}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all h-32 resize-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                    placeholder="Describe your character's personality, background, appearance, etc..."
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+                
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateForm(false)}
+                    disabled={loading}
+                    className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={createCharacter}
+                    disabled={loading || !newCharacter.name.trim() || !newCharacter.details.trim()}
+                    className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <PlusCircle className="w-4 h-4" />
+                        <span>Create</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <CharacterDetailModal />
     </div>
   );
